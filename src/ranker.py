@@ -66,6 +66,12 @@ from src.config import (
     CAREER_CONFIG,
     BEHAVIOR_CONFIG,
 )
+from src.vivek_module import (
+    compute_authenticity_score,
+    compute_momentum_score,
+    compute_potential_score,
+    compute_hidden_talent_score
+)
 
 
 @dataclass
@@ -73,10 +79,13 @@ class CandidateScore:
     """Detailed scoring breakdown for a single candidate."""
     candidate_id: str
     semantic_score: float = 0.0
-    skill_score: float = 0.0
     experience_score: float = 0.0
-    career_score: float = 0.0
+    domain_score: float = 0.0
+    momentum_score: float = 0.0
+    hidden_talent_score: float = 0.0
     behavior_score: float = 0.0
+    potential_score: float = 0.0
+    authenticity_score: float = 0.0
     final_score: float = 0.0
     reasoning: str = ""
 
@@ -88,10 +97,10 @@ class CandidateScore:
 
 
 # ===========================================================================
-# Skill Scoring
+# Skill / Domain Scoring
 # ===========================================================================
-def compute_skill_score(candidate: dict, parsed_jd: ParsedJD) -> tuple[float, list[str], list[str]]:
-    """Compute skill match score between candidate and JD.
+def compute_domain_score(candidate: dict, parsed_jd: ParsedJD) -> tuple[float, list[str], list[str]]:
+    """Compute domain (skill) match score between candidate and JD.
 
     Returns:
         (score 0-100, matched_skills list, missing_skills list)
@@ -228,122 +237,7 @@ def compute_experience_score(candidate: dict, parsed_jd: ParsedJD) -> float:
     return 100.0
 
 
-# ===========================================================================
-# Career Scoring
-# ===========================================================================
-def compute_career_score(candidate: dict, parsed_jd: ParsedJD) -> tuple[float, str, list[str]]:
-    """Compute career trajectory score.
-
-    Components:
-      - Title progression: ascending seniority = good
-      - Industry relevance: tech/AI industries = bonus
-      - Company type: product companies > services
-      - Stability: reasonable tenure per role
-
-    Returns:
-        (score 0-100, title_relevance label, flags list)
-    """
-    career = candidate.get("career_history", [])
-    profile = candidate.get("profile", {})
-    flags = []
-
-    if not career:
-        return 30.0, "unknown", ["no_career_history"]
-
-    # ---- 1. Title Progression ----
-    seniority_levels = []
-    for job in career:
-        title = job.get("title", "")
-        level = get_title_seniority(title)
-        seniority_levels.append(level)
-
-    # Career should go from lower to higher (earliest job to latest)
-    # career_history is typically most-recent-first, so reverse
-    progression_score = 50.0  # Default neutral
-    if len(seniority_levels) >= 2:
-        levels_chronological = list(reversed(seniority_levels))
-        increases = sum(1 for i in range(len(levels_chronological) - 1)
-                       if levels_chronological[i + 1] > levels_chronological[i])
-        decreases = sum(1 for i in range(len(levels_chronological) - 1)
-                       if levels_chronological[i + 1] < levels_chronological[i])
-        stagnant = sum(1 for i in range(len(levels_chronological) - 1)
-                      if levels_chronological[i + 1] == levels_chronological[i])
-
-        total_transitions = len(levels_chronological) - 1
-        if total_transitions > 0:
-            progression_score = ((increases * 100 + stagnant * 50) / total_transitions)
-            if decreases > 0:
-                flags.append("career_regression")
-                progression_score *= 0.7
-
-    # ---- 2. Title Relevance to AI/ML ----
-    current_title = profile.get("current_title", "").lower()
-    title_relevance = "neutral"
-
-    ai_keywords = CAREER_CONFIG["ai_title_keywords"]
-    non_ai_keywords = CAREER_CONFIG["non_ai_title_keywords"]
-
-    is_ai_title = any(kw in current_title for kw in ai_keywords)
-    is_non_ai_title = any(kw in current_title for kw in non_ai_keywords)
-
-    if is_ai_title and not is_non_ai_title:
-        title_relevance = "strong_match"
-        title_bonus = 30
-    elif is_non_ai_title and not is_ai_title:
-        title_relevance = "weak_match"
-        title_bonus = -20
-        flags.append("non_ai_title")
-    else:
-        title_bonus = 0
-
-    # ---- 3. Industry Relevance ----
-    industries = [job.get("industry", "") for job in career]
-    industry_scores = [get_industry_relevance(ind) for ind in industries if ind]
-    avg_industry = sum(industry_scores) / max(1, len(industry_scores))
-    industry_score = avg_industry * 100
-
-    # ---- 4. Company Type (Product vs Services) ----
-    companies = [job.get("company", "") for job in career]
-    services_count = sum(1 for c in companies if is_services_company(c))
-    total_companies = max(1, len(companies))
-
-    if services_count == total_companies and total_companies > 1:
-        # ALL career at services companies — JD explicitly warns against this
-        company_score = 20.0
-        flags.append("all_services_career")
-    elif services_count > 0:
-        # Mixed: some services, some product
-        company_score = 100 - (services_count / total_companies * 60)
-    else:
-        company_score = 100.0
-
-    # ---- 5. Stability ----
-    durations = [job.get("duration_months", 0) for job in career]
-    avg_tenure = sum(durations) / max(1, len(durations))
-    min_tenure = CAREER_CONFIG["min_avg_tenure_months"]
-
-    if avg_tenure >= min_tenure:
-        stability_score = 100.0
-    else:
-        # Job hopping penalty
-        stability_score = max(20.0, (avg_tenure / min_tenure) * 100)
-        if avg_tenure < 12:
-            flags.append("job_hopper")
-
-    # ---- Combine ----
-    career_score = (
-        progression_score * CAREER_CONFIG["progression_weight"]
-        + industry_score * CAREER_CONFIG["industry_weight"]
-        + company_score * CAREER_CONFIG["company_type_weight"]
-        + stability_score * CAREER_CONFIG["stability_weight"]
-        + title_bonus
-    )
-
-    # All-services penalty (multiplicative)
-    if "all_services_career" in flags:
-        career_score *= CAREER_CONFIG["all_services_penalty"]
-
-    return max(0.0, min(100.0, career_score)), title_relevance, flags
+# compute_career_score has been removed in favor of Momentum + Potential + Domain scoring in vivek_module.py
 
 
 # ===========================================================================
@@ -436,43 +330,63 @@ def compute_behavior_score(candidate: dict) -> float:
 def compute_final_score(scores: CandidateScore) -> float:
     """Combine all dimension scores into a final score using configured weights."""
     final = (
-        scores.semantic_score * WEIGHTS["semantic"]
-        + scores.skill_score * WEIGHTS["skill"]
-        + scores.experience_score * WEIGHTS["experience"]
-        + scores.career_score * WEIGHTS["career"]
-        + scores.behavior_score * WEIGHTS["behavior"]
+        scores.semantic_score * WEIGHTS.get("semantic", 0)
+        + scores.experience_score * WEIGHTS.get("experience", 0)
+        + scores.domain_score * WEIGHTS.get("domain", 0)
+        + scores.momentum_score * WEIGHTS.get("momentum", 0)
+        + scores.hidden_talent_score * WEIGHTS.get("hidden_talent", 0)
+        + scores.behavior_score * WEIGHTS.get("behavior", 0)
+        + scores.potential_score * WEIGHTS.get("potential", 0)
+        + scores.authenticity_score * WEIGHTS.get("authenticity", 0)
     )
     return round(final / 100, 4)  # Normalize to 0-1 range
 
 
-def generate_reasoning(candidate: dict, scores: CandidateScore) -> str:
-    """Generate a concise one-line reasoning string for the ranking.
-
-    Format matches submission sample:
-      "ML Engineer with 6.4 yrs; skill match 85%; semantic 92%; career growth strong"
+def generate_reasoning(candidate: dict, scores: CandidateScore, risk_info: dict = None) -> str:
+    """Generate Explainable Recruiter AI output.
+    
+    Format:
+      Why Ranked #1?
+      + Strong semantic skill match
+      + Relevant AI experience
+      + High authenticity score
+      
+      Weakness:
+      - Limited leadership experience
+      
+      Confidence: 92%
     """
-    profile = candidate.get("profile", {})
-    title = profile.get("current_title", "Unknown")
-    years = profile.get("years_of_experience", 0)
-
-    parts = [
-        f"{title} with {years} yrs",
-        f"skill:{scores.skill_score:.0f}%",
-        f"semantic:{scores.semantic_score:.0f}%",
-        f"exp:{scores.experience_score:.0f}%",
-        f"career:{scores.career_score:.0f}%",
-    ]
-
-    # Add response rate from signals
-    signals = candidate.get("redrob_signals", {})
-    rr = signals.get("recruiter_response_rate", 0)
-    parts.append(f"response rate {rr:.2f}")
-
-    # Add flags if any
-    if scores.flags:
-        parts.append(f"flags:{','.join(scores.flags[:2])}")
-
-    return "; ".join(parts)
+    strengths = []
+    weaknesses = []
+    
+    if scores.semantic_score > 80: strengths.append("Strong semantic skill match")
+    if scores.experience_score > 80: strengths.append("Relevant experience")
+    if scores.authenticity_score > 80: strengths.append("High authenticity score")
+    if scores.momentum_score > 80: strengths.append("Strong career growth")
+    if scores.potential_score > 80: strengths.append("High future potential")
+    if scores.hidden_talent_score > 80: strengths.append("Hidden talent discovered")
+    
+    if scores.experience_score < 50: weaknesses.append("Lacking required experience level")
+    if scores.domain_score < 50: weaknesses.append("Missing core domain skills")
+    if scores.momentum_score < 50: weaknesses.append("Career stagnation detected")
+    if scores.behavior_score < 50: weaknesses.append("Low recruiter engagement signals")
+    if scores.authenticity_score < 50: weaknesses.append("Low skill authenticity")
+    
+    if risk_info and risk_info.get("level") == "High":
+        weaknesses.append("High hiring risk (job hopping / inconsistency)")
+        
+    strengths_str = "\\n".join([f"+ {s}" for s in strengths[:4]])
+    weaknesses_str = "\\n".join([f"- {w}" for w in weaknesses[:2]])
+    confidence = int((scores.semantic_score + scores.domain_score + scores.authenticity_score) / 3)
+    
+    parts = []
+    if strengths_str:
+        parts.append(f"Strengths:\\n{strengths_str}")
+    if weaknesses_str:
+        parts.append(f"Weaknesses:\\n{weaknesses_str}")
+    parts.append(f"Confidence: {confidence}%")
+    
+    return "\\n\\n".join(parts)
 
 
 # ===========================================================================
@@ -492,14 +406,26 @@ def rank_candidate(candidate: dict, parsed_jd: ParsedJD,
     """
     cid = candidate.get("candidate_id", "UNKNOWN")
 
-    # Skill score
-    skill_score, matched, missing = compute_skill_score(candidate, parsed_jd)
+    # Core Module 2: Semantic Skill Matching (Pre-computed)
+    # Core Module 1: Job Understanding Agent (ParsedJD)
+
+    # Core Module 4: Skill Authenticity Detector
+    authenticity_score = compute_authenticity_score(candidate)
+
+    # Core Module 5: Career Momentum Analysis
+    momentum_score = compute_momentum_score(candidate)
+
+    # Core Module 6: Future Potential Score
+    potential_score = compute_potential_score(candidate)
+
+    # Core Module 3: Hidden Talent Discovery
+    hidden_talent_score = compute_hidden_talent_score(candidate, parsed_jd)
+
+    # Domain score (formerly skill score)
+    domain_score, matched, missing = compute_domain_score(candidate, parsed_jd)
 
     # Experience score
     exp_score = compute_experience_score(candidate, parsed_jd)
-
-    # Career score
-    career_score, title_rel, flags = compute_career_score(candidate, parsed_jd)
 
     # Behavior score
     behavior_score = compute_behavior_score(candidate)
@@ -508,14 +434,17 @@ def rank_candidate(candidate: dict, parsed_jd: ParsedJD,
     result = CandidateScore(
         candidate_id=cid,
         semantic_score=semantic_score,
-        skill_score=skill_score,
         experience_score=exp_score,
-        career_score=career_score,
+        domain_score=domain_score,
+        momentum_score=momentum_score,
+        hidden_talent_score=hidden_talent_score,
         behavior_score=behavior_score,
+        potential_score=potential_score,
+        authenticity_score=authenticity_score,
         matched_skills=matched,
         missing_skills=missing,
-        title_relevance=title_rel,
-        flags=flags,
+        title_relevance="",
+        flags=[],
     )
 
     # Final score

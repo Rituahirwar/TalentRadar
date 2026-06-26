@@ -140,8 +140,9 @@ def write_ranked_csv(scored: list[CandidateScore], output_path: str) -> None:
     with open(output_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "candidate_id", "semantic_score", "skill_score",
-            "experience_score", "career_score", "behavior_score",
+            "candidate_id", "semantic_score", "experience_score",
+            "domain_score", "momentum_score", "hidden_talent_score",
+            "behavior_score", "potential_score", "authenticity_score",
             "final_score"
         ])
 
@@ -149,10 +150,13 @@ def write_ranked_csv(scored: list[CandidateScore], output_path: str) -> None:
             writer.writerow([
                 sc.candidate_id,
                 f"{sc.semantic_score:.1f}",
-                f"{sc.skill_score:.1f}",
                 f"{sc.experience_score:.1f}",
-                f"{sc.career_score:.1f}",
+                f"{sc.domain_score:.1f}",
+                f"{sc.momentum_score:.1f}",
+                f"{sc.hidden_talent_score:.1f}",
                 f"{sc.behavior_score:.1f}",
+                f"{sc.potential_score:.1f}",
+                f"{sc.authenticity_score:.1f}",
                 f"{sc.final_score:.4f}",
             ])
 
@@ -312,16 +316,7 @@ def run_pipeline(candidates_path: str, output_path: str, jd_text: str = None):
     #   final_results = enrich_reasoning(final_results, candidate_data)
     #
     # ════════════════════════════════════════════════════════════════════════
-    print("\n=== DEBUG CANDIDATE DATA ===")
-    print(type(candidate_data))
-    print("Candidates:", len(candidate_data))
-
-    if candidate_data:
-        print(candidate_data[0])
-    final_results = assess_risk(
-    final_results,
-    candidate_data
-)
+    final_results = assess_risk(final_results, candidate_data)
     elapsed_total = time.time() - start_time
     print(f"\n  Pass 2 complete in {time.time() - pass2_start:.1f}s")
     print(f"  Total pipeline time: {elapsed_total:.1f}s")

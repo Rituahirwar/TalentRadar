@@ -10,11 +10,14 @@ without touching any logic code. Each weight is documented with its rationale.
 # ---------------------------------------------------------------------------
 # The JD emphasizes: skills > semantic > experience > career > behavior
 WEIGHTS = {
-    "semantic":    0.30,   # Embedding-based JD ↔ candidate similarity
-    "skill":       0.30,   # Hard skill match (exact + cluster)
-    "experience":  0.15,   # Years of experience match
-    "career":      0.15,   # Career trajectory + industry + company type
-    "behavior":    0.10,   # Redrob platform signals (availability, engagement)
+    "semantic":         0.25,   # Embedding-based JD ↔ candidate similarity
+    "experience":       0.15,   # Years of experience match
+    "domain":           0.15,   # Hard skill match (formerly 'skill')
+    "momentum":         0.10,   # Career trajectory and promotion speed
+    "hidden_talent":    0.10,   # Undiscovered/transferable talent
+    "behavior":         0.10,   # Redrob platform signals (availability, engagement)
+    "potential":        0.10,   # Future value, certifications, learning speed
+    "authenticity":     0.05,   # Skill authenticity and validation
 }
 
 # ---------------------------------------------------------------------------
@@ -86,6 +89,45 @@ CAREER_CONFIG = {
         "graphic designer", "customer support", "operations",
         "civil engineer", "mechanical engineer",
     ],
+}
+
+# ---------------------------------------------------------------------------
+# Momentum scoring parameters (RecruiterGPT)
+# ---------------------------------------------------------------------------
+MOMENTUM_CONFIG = {
+    "fast_promotion_bonus": 20,       # Bonus for promotions within 18 months
+    "stagnation_penalty": 15,         # Penalty for > 4 years same title, same company
+    "progression_weight": 0.6,
+    "stability_weight": 0.4,
+}
+
+# ---------------------------------------------------------------------------
+# Potential scoring parameters (RecruiterGPT)
+# ---------------------------------------------------------------------------
+POTENTIAL_CONFIG = {
+    "recent_cert_bonus": 15,          # Bonus for certifications in last 2 years
+    "diverse_stack_bonus": 15,        # Bonus for mastering disjoint tech stacks
+    "base_potential": 60,             # Default baseline potential score
+}
+
+# ---------------------------------------------------------------------------
+# Authenticity scoring parameters (RecruiterGPT)
+# ---------------------------------------------------------------------------
+AUTHENTICITY_CONFIG = {
+    "base_authenticity": 100,
+    "unverified_skill_penalty": 10,   # Penalty per skill claimed with < 6mo duration & 0 endorsements
+    "high_endorsement_threshold": 10, # Number of endorsements to completely verify a skill
+}
+
+# ---------------------------------------------------------------------------
+# Risk scoring parameters (RecruiterGPT)
+# ---------------------------------------------------------------------------
+RISK_CONFIG = {
+    "job_hopping_penalty": 15.0,      # Flat deduction from final score (max 100)
+    "inconsistent_path_penalty": 10.0,
+    "skill_inflation_penalty": 15.0,
+    "high_risk_threshold": 25.0,      # Total penalty above which risk is HIGH
+    "medium_risk_threshold": 10.0,    # Total penalty above which risk is MEDIUM
 }
 
 # ---------------------------------------------------------------------------
