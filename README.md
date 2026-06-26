@@ -1,3 +1,11 @@
+---
+title: TalentRadar API
+emoji: 🚀
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
 <div align="center">
   <img src="talentradar-frontend/public/icon.svg" alt="TalentRadar Logo" width="100" />
   <h1>🚀 TalentRadar AI</h1>
