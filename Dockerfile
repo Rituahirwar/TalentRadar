@@ -1,13 +1,18 @@
 FROM python:3.10-slim
 
+# Create a non-root user (required by Hugging Face Spaces)
+RUN useradd -m -u 1000 user
+USER user
+ENV PATH="/home/user/.local/bin:$PATH"
+
 WORKDIR /app
 
 # Install dependencies
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --chown=user backend/requirements.txt ./
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 # Copy the rest of the application
-COPY . .
+COPY --chown=user . .
 
 # Hugging Face Spaces run on port 7860 by default
 EXPOSE 7860
